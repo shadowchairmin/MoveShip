@@ -495,7 +495,7 @@
                     var ctx=canvas.getContext("2d");
                     //alert(DO);
                     if (DO==0) {
-                        if (ALL_LOADED) {
+                        if (ALL_LOADED()) {
                             newDO=1;
                         } else {
                             ctx.clearRect(0,0,W,H);
