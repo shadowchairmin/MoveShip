@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content="戦闘機/SPACESHIP" />
+        <meta name="twitter:description" content="ひまつぶしに作った宇宙船をJavascriptで動かします" />
+        <meta name="twitter:image" content="https://raw.githubusercontent.com/shadowchairmin/MoveShip/main/logomoveship.png" />
+        <title>SpaceHtml</title>
+        <style>
+            *{
+                margin: 0;
+                padding: 0;
+            }
+            #canvas{
+                display: block;
+            }
+            html, body, #wrapper{
+                width: 100%;
+                height: 100%
+            }
+        </style>
+    </head>
+    <body bgcolor="black">
+        <!--<style type="text/css">
+            canvas { border: 1px solid black; }
+          </style>-->
+        <div id="wrapper">
+            <canvas id="maincanvas" width="" height=""></canvas>
+        </div>
+        <script type="application/javascript">
+            let wrapper = null;
+            let canvas= null;
+            let g=null;
+            const RES_W = 1920; //=1920
+            const RES_H = 1080; //=1080
+            let W=null;
+            let H=null;
+            let aL=null; 
+            let aU=null;
+            let aW=null;
+            let aH=null;
+            let zm=null;
+            let mouseX=null;
+            let mouseY=null;
+            const SMPH = navigator.userAgent.match(/iPhone|Android.+Mobile/)
+            let TOUCHON = false;
+            let EVENTREC = {"refer":function(k){
+                if (k!="refer") {
+                    if (EVENTREC.k===true) {
+                        EVENTREC.k=false;
+                        return true;
+                    }
+                }
+                return false;
+            }}
+
+            let DO=0;
+            let newDO = -1;
+
+            
+            //ウィンドウサイズ変更時にキャンバスを自動リサイズ
+            function ResizeCanvas(){
+                W=wrapper.offsetWidth
+                H=wrapper.offsetHeight
+                canvas.width = W;
+                canvas.height =  H;
+                if ( W*9/16 < H ) {
+                    aW = W;
+                    aH = W*RES_H/RES_W; // =W*900/1600
+                    aL = 0;
+                    aU = (H - aH)/2;
+                    zm = aW/RES_W; // =aW/1600
+                } else {
+                    aH = H;
+                    aW = H*RES_W/RES_H; // =H*1600/900
+                    aU = 0;
+                    aL = (W - aW)/2;
+                    zm = aW/RES_W; // =aW/1600
+                }
+                nofitting=false;
+                if (nofitting) {
+                    aL=0;
+                    aU=0;
+                    aW=W;
+                    aH=H;
+                }
+                
+            }
+            window.addEventListener("resize", function(){
+                ResizeCanvas();
+            });
+            let fillOuter = function(ctx,color="rgb(0,0,0)"){
+                var defalph=ctx.globalAlpha;
+                ctx.globalAlpha=1;
+                ctx.fillStyle=color;
+                if (0<aL) {ctx.fillRect(0,0,aL,H); ctx.fillRect(W-aL,0,aL,H); }
+                else if (0<aH) {ctx.fillRect(0,0,W,aU); ctx.fillRect(0,H-aU,W,aU);}
+                ctx.globalAlpha=defalph;
+            }
+
+
+            //window.onload
+            window.onload = function init(){
+                wrapper = document.getElementById("wrapper");
+                canvas = document.getElementById("maincanvas");
+                g = canvas.getContext("2d");
+                ResizeCanvas();
+            };
+            
+
+            //各種EventListenerを追加
+            window.addEventListener('click', function(event){
+                EVENTREC.clicked=true;
+                enterFullScreen(event);
+            });
+            window.addEventListener('mousemove', function(g){
+                mouseX = g.pageX;
+                mouseY = g.pageY;
+            })
+            if (SMPH) {
+                document.getElementById("maincanvas").addEventListener('touchmove', function(g){
+                    g.preventDefault();
+                    var l = g.changedTouches[0];
+                    mouseX = l.pageX;
+                    mouseY = l.pageY;
+                })
+                document.getElementById("maincanvas").addEventListener('touchstart', function(){
+                    TOUCHON = true;
+                })
+                document.getElementById("maincanvas").addEventListener('touchend', function(){
+                    TOUCHON = false;
+                })
+            }
+
+            function exitfullsc() {
+                if( document.exitFullscreen ) {
+                    document.exitFullscreen();
+                } else if( document.mozCancelFullScreen ) {
+                    document.mozCancelFullScreen();
+                } else if( document.webkitCancelFullScreen ) {
+                    document.webkitCancelFullScreen();
+                } else if( document.msExitFullscreen ) {
+                    document.msExitFullscreen();
+                }
+            }
+            function enterFullScreen(event) {
+                if( document.body.requestFullscreen ) {
+                    document.body.requestFullscreen();
+                } else if( document.body.mozRequestFullScreen ) {
+                    document.body.mozRequestFullScreen();
+                } else if( document.body.webkitRequestFullscreen ) {
+                    document.body.webkitRequestFullscreen();
+                } else if( document.body.msRequestFullscreen ) {
+                    document.body.msRequestFullscreen();
+                }
+            }
+
+            function checkFullScreen() {
+
+                var fullscreen_flag = false;
+
+                if( document.fullscreenElement || document.mozFullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement ) {
+                    fullscreen_flag = true;
+                }
+
+                return fullscreen_flag;
+            }
+
+            //キー押下の記録
+            let KEY = {};
+            document.addEventListener('keydown', function(e){KEY[e.code]=true;});
+            document.addEventListener('keyup', function(e){KEY[e.code]=false;});
+
+
+            //各種関数を定義
+            const rangerand = (mn,mx) => {
+                //mn以上mx以下の乱数を返す
+                return Math.floor( Math.random() * (mx + 1 - mn) ) + mn;
+            }
+            const fitin = (X,mn,mx) => {
+                return Math.min(mx, Math.max(mn, X) );
+            }
+            const radian = (degree)=>{return (degree*Math.PI/180);}
+            const degree = (radian)=>{return (radian*180/Math.PI);}
+            const mod = (N,divider)=>{return ((N%divider)+divider)%divider;}
+            const pmsign = (n)=>{ if(n>0){return 1;}else if(n<0){return -1;}else return 0; }
+
+            const drawRotatedImage = (ctx, img, ang, x, y, w=null, h=null, 
+                                    subx=null, suby=null, subw=null, subh=null) => {
+                //if (ang!=0) {
+                ctx.save();
+                ctx.translate(x,y);
+                ctx.rotate(ang);
+
+                if ((subx!=null)&&(suby!=null)&&(subw!=null)&&(subh!=null)) {
+                    ctx.drawImage(img, subx, suby, subw, subh, -(w/2), -(h/2), w, h);
+                } else if ((w!=null)&&(h!=null)) {
+                    ctx.drawImage(img, -(w/2), -(h/2), w, h);
+                } else {
+                    ctx.drawImage(img, -(img.width/2), -(img.height/2));
+                }
+                //if (ang!=0) { 
+                ctx.restore();
+            }
+
+            
+            //
+            class CollisionDetection {
+                //CD:Collision Detection
+                //四角形(rect)同士、円(circle)同士などの当たり判定をする
+                //境界線含む
+                Rects = function(r1_x,r1_y,r1_w,r1_h,r2_x,r2_y,r2_w,r2_h) {
+                    if ( (r1_x+r1_w>=r2_x && r1_x<=r2_x+r2_w) 
+                        && (r1_y+r1_h>=r2_y && r1_y<=r2_y+r2_h) ) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }
+                
+
+                Circles = function(c1_x,c1_y,c1_r,c2_x,c2_y,c2_r) {
+                    if ( (c1_x-c2_x)**2 + (c1_y-c2_y)**2 <= (c1_r+c2_r)**2 ) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }
+
+                RectLine = function(r_x,r_y,r_w,r_h,l_x1,l_y1,l_x2,l_y2) {
+                    if (l_x1-l_x2==0) { //線分がy軸平行(=傾きがない)な場合
+                        if ( (r_x<=l_x1 && l_x1<=r_x+r_w)
+                            && (r_y>=Math.min(l_y1,l_y2) && r_y+r_h<=Math.max(l_y1,l_y2)) ) {
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    } else if (r_x>Math.max(l_x1,l_x2) || r_x+r_w<Math.min(l_x1,l_x2)) {
+                        return false;
+                    } else {
+                        var xtoy = function(X) {
+                            //2点(l_x1,l_y1)(l_x2,l_y2)を通る直線のx=XでのYを返す
+                            //Y=((l_y2-l_y1)*X+(l_x2*l_y1-l_x1*l_y2))/(l_x2-l_x1))より
+                            return ( (l_y2-l_y1)*X+(l_x2*l_y1-l_x1*l_y2) ) / (l_x2-l_x1);
+                        }
+                        X1=Math.max(r_x, Math.min(l_x1,l_x2) );
+                        X2=Math.min(r_x+r_w, Math.max(l_x1,l_x2) );
+                        if (Math.max(xtoy(X1),xtoy(X2))>r_y
+                            && Math.min(xtoy(X1),xtoy(X2))<r_y+r_h) {
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    }
+                }
+                //CD = new CollisionDetection();
+            }
+            const CD = new CollisionDetection();
+
+
+            class SpritesProcessor {
+
+
+                //※このクラスは以下の関数が別途必要:
+                //const drawRotatedImage = (ctx, img, ang, x, y, w=null, h=null, 
+                //    subx=null, suby=null, subw=null, subh=null) => {
+                //    ctx.save();
+                //    ctx.translate(x,y);
+                //    ctx.rotate(ang);
+                //    if ((subx!=null)&&(suby!=null)&&(subw!=null)&&(subh!=null)) {
+                //        ctx.drawImage(img, subx, suby, subw, subh, -(w/2), -(h/2), w, h);
+                //    } else if ((w!=null)&&(h!=null)) {
+                //        ctx.drawImage(img, -(w/2), -(h/2), w, h);
+                //    } else {
+                //        ctx.drawImage(img, -(img.width/2), -(img.height/2));
+                //    }
+                //    ctx.restore();
+                //}
+
+                constructor() {
+                    this.sprites={};
+                    this.sprinfo={};
+                }
+
+                update() {
+                    //存在する全スプライトを処理する
+                    //X,Y座標をxspeed,yspeedずつ動かす、指定済の関数を実行する、など
+                    Object.keys(this.sprites).forEach(spe=>{
+                        //各Speciesについて：
+                        var id=0;
+                        while (id<this.sprites[spe].length) {
+                            //そのSpeciesに属する各スプライトについて：
+                            this.sprites[spe][id].x+=this.sprites[spe][id].speedx;
+                            this.sprites[spe][id].y+=this.sprites[spe][id].speedy;
+                            if (this.sprinfo[spe]["func"]!=null) {
+                                //関数を実行
+                                this.sprinfo[spe]["func"](this.sprites[spe][id]);
+                            }
+                            this.sprites[spe][id].time++;
+
+                            if (this.sprites[spe][id].deleteflag == true) {
+                                //もしそのスプライトの削除フラグがtrueであれば、削除する
+                                this.sprites[spe].splice(id,1);
+                            } else {
+                                id++;
+                            }
+                        }
+                    });
+                }
+
+                drawAll(ctx,aL=0,aU=0,zm=1) {
+                    //全スプライトをcanvasに描画する
+                    //引数 ctx:キャンバスのcontext　aL(任意):描画する領域の左端位置
+                    //　　 aU(任意):描画する領域の上端位置　zm(任意):描画倍率
+                    var defalph = ctx.globalAlpha;
+                    Object.keys(this.sprites).forEach(spe=>{
+                        var image=this.sprinfo[spe]["image"];
+                        var imw=image.width;
+                        var imh=image.height;
+                        var imdivx=this.sprinfo[spe]["im_divx"];
+                        var imdivy=this.sprinfo[spe]["im_divy"];
+                        if (this.sprinfo[spe]["im_divx"]>1 || this.sprinfo[spe]["im_divy"]>1) {
+                            var drawdivided=true;
+                        } else { 
+                            var drawdivided=false;
+                        }
+                        this.sprites[spe].forEach(spr=>{
+                            //そのSpeciesに属する各スプライトについて：
+                            ctx.globalAlpha=spr["alpha"]
+                            if (drawdivided) {
+                                drawRotatedImage(ctx, image, spr["angle"], aL+spr["x"]*zm,
+                                                aU+spr["y"]*zm, spr["width"]*zm, spr["height"]*zm,
+                                                imw/imdivx*(spr["costume"]%imdivx),
+                                                imh/imdivy*(spr["costume"]/imdivx|0),
+                                                imw/imdivx, imh/imdivy);
+                            } else {
+                                drawRotatedImage(ctx, image, spr["angle"], aL+spr["x"]*zm,
+                                                aU+spr["y"]*zm, spr["width"]*zm, spr["height"]*zm);
+                            }
+                        })
+                    });
+                    ctx.globalAlpha = defalph;
+                }
+
+                addSpecies(name,image,func=null,im_divx=null,im_divy=null,additionalparams=null) {
+                    //Speciesを追加
+                    var add={};
+                    add["image"]=image;
+                    if (im_divx==null || im_divy==null) {
+                        add["im_divx"]=1;
+                        add["im_divy"]=1;
+                    } else {
+                        add["im_divx"]=Math.max(im_divx,1);
+                        add["im_divy"]=Math.max(im_divy,1);
+                    }
+                    add["func"]=func
+                    if (additionalparams!=null && Array.isArray(additionalparams)==false) {
+                        add["params"]=[additionalparams];
+                    } else {
+                        add["params"]=additionalparams;
+                    }
+                    this.sprinfo[name]=add;
+                    this.sprites[name]=[] //{"x":0,"y":0,"speedx":0,"speedy":0,"costume":0,"time":0,"deleteflag":false}
+                }
+
+                newSprite(species,x,y,w,h,speedx=0,speedy=0,costume=0,angle=0,alpha=1) {
+                    var add={};
+                    add["x"]=x;
+                    add["y"]=y;
+                    add["width"]=w;
+                    add["height"]=h;
+                    add["angle"]=angle
+                    add["speedx"]=speedx;
+                    add["speedy"]=speedy;
+                    add["costume"]=costume;
+                    add["alpha"]=1;
+                    add["time"]=-1;
+                    add["deleteflag"]=false;
+                    if (this.sprinfo[species]["params"]!=null) {
+                        this.sprinfo[species]["params"].forEach(param=>{
+                            add[param]=null;
+                        })
+                    }
+                    this.sprites[species].push(add);
+                }
+
+
+            }
+
+
+
+            //画像読込
+            let img = {};
+            img.pl = new Image();
+            img.pl.src = "sprite_PL.png";
+            img.pl.asp = 520/910
+            img.cloud = new Image();
+            img.cloud.src = "Cloud-0.png";
+            img.back = new Image();
+            img.back.src = "starsback.png";
+            let ALL_LOADED = function(){
+                var rtn=false;
+                img.forEach(im=>{
+                    if (im.width+im.height<1) {
+                        rtn=true;
+                    }
+                })
+                return rtn;
+            }
+
+
+
+
+
+            //＊＊＊＊＊↓以下 主処理↓＊＊＊＊＊
+            let frame=0;
+            let frame_=0;
+            let stars=[];
+            let spr = new SpritesProcessor();
+            let manual = true;
+            
+            spr.addSpecies("PL",img.pl,function(S){
+                    if (S.cos_no==null) {S.cos_no=9;}
+                    if (manual) {
+                        var mxsp=16
+                        var acl=8
+                        S.costume=[26,22,18,14,10,6,2,24,20,0,4,8,12,16][S.cos_no] + (S.time/2|0)%2;
+                        if (SMPH) {
+                            if (S.time==-1) {
+                                S.mouseX=(mouseX-aL)/zm;
+                                S.mouseY=(mouseY-aU)/zm;
+                            } else {
+                                if (TOUCHON) {
+                                    S.mouseX=Math.floor(fitin((mouseX-aL)/zm,0,RES_W));
+                                    S.mouseY=Math.floor(fitin((mouseY-aU)/zm,0,RES_H));
+                                    var tf = (n,spd)=>{if (n>spd*(spd+1)/2) {return true;} else {return false;} };
+                                    KEY["ArrowLeft"] = tf(-S.mouseX/2+S.x,Math.max(Math.abs(S.speedx),acl));
+                                    KEY["ArrowRight"] = tf(S.mouseX/2-S.x,Math.max(Math.abs(S.speedx),acl));
+                                    KEY["ArrowUp"] = tf(-S.mouseY+S.y,Math.max(Math.abs(S.speedy),acl));
+                                    KEY["ArrowDown"] = tf(S.mouseY-S.y,Math.max(Math.abs(S.speedy),acl));
+                                }
+                            }
+                        }
+                        if (KEY["ArrowLeft"]) {
+                            S.speedx=Math.max(S.speedx-acl,-mxsp);
+                        } else if (KEY["ArrowRight"]) {
+                            S.speedx=Math.min(S.speedx+acl,mxsp);
+                        } else {
+                            S.speedx-=pmsign(S.speedx)
+                        }
+                        if (KEY["ArrowUp"]) {
+                            S.speedy=Math.max(S.speedy-acl,-mxsp);
+                            S.angle=fitin(S.angle-0.01,-0.2,0.2);
+                        } else if (KEY["ArrowDown"]) {
+                            S.speedy=Math.min(S.speedy+acl,mxsp);
+                            S.angle=fitin(S.angle+0.01,-0.2,0.2);
+                        } else {
+                            S.speedy-=pmsign(S.speedy);
+                            S.angle-=0.01*pmsign(S.angle);
+                        }
+                        if (Math.abs(S.angle)<0.01) {S.angle=0;}
+                        if (S.time%1==0) {
+                            if (KEY["ArrowUp"]) {S.cos_no-=pmsign(S.cos_no-13);}
+                            else if (KEY["ArrowDown"]) {S.cos_no-=pmsign(S.cos_no-0);}
+                            else if (KEY["ArrowLeft"]) {S.cos_no-=mod(S.time,2)*pmsign(S.cos_no-4);}
+                            else if (KEY["ArrowRight"]) {S.cos_no-=mod(S.time,2)*pmsign(S.cos_no-11);}
+                            else {S.cos_no-=pmsign(S.cos_no-9);}
+                        }
+                        S.x=fitin(S.x,0,RES_W);
+                        S.y=fitin(S.y,0,RES_H);
+                    }
+                    for (var i=0; i<3; i++) {
+                        spr.newSprite("Cloud_particle",S.x-S.width/4+i*5,S.y,S.width/6,S.width/6,-S.width/15,rangerand(-10,10)*0.1,0,0,0.5);
+                    }
+                    return;
+                },4,7,["cos_no"]);
+            spr.addSpecies("Cloud_particle",img.cloud,function(S){
+                    var timelim=50;
+                    if (S.x < 0-S.width || S.x > RES_W+S.width) {
+                        S.deleteflag=true;
+                    } else if (S.time>timelim) {
+                        S.deleteflag=true;
+                    }
+                    S.alpha=0.8-(0.8*S.time/timelim)
+                    return;
+                },1,1,[]);
+            spr.newSprite("PL",300,300,300,300*(520/910),0,0,0);
+            for (var i=0;i<200;i++) {stars.push([rangerand(0,RES_W),rangerand(0,RES_H),rangerand(0,5)])}
+
+
+            //＊＊＊＊＊↓MAIN LOOP↓＊＊＊＊＊
+            function draw() {
+                if (canvas.getContext) {
+                    var ctx=canvas.getContext("2d");
+                    //alert(DO);
+                    if (DO==0) {
+                        if (ALL_LOADED) {
+                            newDO=1;
+                        } else {
+                            ctx.clearRect(0,0,W,H);
+                            ctx.globalAlpha=1;
+                            ctx.fillStyle = 'white';              // 塗りつぶしの色
+                            ctx.font = (100*zm)+'px メイリオ bold';  // フォント
+                            ctx.textAlign = 'center';               // 配置
+                            ctx.fillText("しばらくお待ちください", W/2, H/2+15*zm*Math.sin(frame_/12));
+                            ctx.font = (50*zm)+'px メイリオ bold';  // フォント
+                            ctx.textAlign = 'center';               // 配置
+                            if (W<H) {
+                                ctx.fillText("ー画面を横にして下さいー", W/2, H/2+120*zm);
+                            }
+                        }
+                    } else if (DO==1) {
+                        ctx.clearRect(0,0,W,H);
+                        ctx.strokeStyle="rgb(255,255,255)";
+                        var plY=spr.sprites["PL"][0]["y"];
+                        for (var i=0; i<stars.length; i++) {
+                            var tmp=stars[i][0];
+                            ctx.lineWidth=Math.floor(stars[i][2]*zm)
+                            ctx.beginPath();
+                            ctx.moveTo(aL+stars[i][0]*zm,aU+mod(stars[i][1]*zm-plY/stars[i][2]*2,aH));
+                            stars[i][0] = mod((stars[i][0]-stars[i][2]*0.5), RES_W );
+                            ctx.lineTo( Math.min( aL+stars[i][0]*zm, aL+tmp*zm ), aU+mod(stars[i][1]*zm-plY/stars[i][2]*2,aH) );
+                            ctx.stroke();
+                        }
+                        ctx.globalAlpha=1;
+                        ctx.fillStyle = 'white';              // 塗りつぶしの色
+                        ctx.font = (150*zm)+'px メイリオ bold';  // フォント
+                        ctx.textAlign = 'center';               // 配置
+                        ctx.fillText("戦闘機", W/2, H/2+15*zm*Math.sin(frame_/12));
+                        ctx.font = (100*zm)+'px メイリオ bold';  // フォント
+                        ctx.textAlign = 'center';               // 配置
+                        if (W<H) {
+                            ctx.fillText("ー画面を横にして下さいー", W/2, H/2+170*zm+15*zm*Math.sin(frame_/11));
+                        } else {
+                            ctx.fillText("TAP(CLICK) TO BEGIN", W/2, H/2+170*zm+15*zm*Math.sin(frame_/11));
+                            if (SMPH) {
+                                ctx.fillText("操作：画面をドラッグ", W/2, H/2+270*zm+15*zm*Math.sin(frame_/11));
+                            } else {
+                                ctx.fillText("操作：←↑→↓キー", W/2, H/2+270*zm+15*zm*Math.sin(frame_/11));
+                            }
+                        }
+                        if (EVENTREC.clicked) {
+                            newDO=2;
+                        }
+                        fillOuter(ctx,"rgb(0,0,0)");
+                        
+                        frame_++;
+                    } else if (DO==2) {
+                        ctx.clearRect(0,0,W,H);
+                        ctx.drawImage(img.back,aL,aU,aW,aH);
+                        ctx.strokeStyle="rgb(255,255,255)";
+                        var plY=spr.sprites["PL"][0]["y"];
+                        for (var i=0; i<stars.length; i++) {
+                            var tmp=stars[i][0];
+                            ctx.lineWidth=Math.floor(stars[i][2]*zm)
+                            ctx.beginPath();
+                            ctx.moveTo(aL+stars[i][0]*zm,aU+mod(stars[i][1]*zm-plY/stars[i][2]*2,aH));
+                            stars[i][0] = mod((stars[i][0]-stars[i][2]*1), RES_W );
+                            ctx.lineTo( Math.min( aL+stars[i][0]*zm, aL+tmp*zm ), aU+mod(stars[i][1]*zm-plY/stars[i][2]*2,aH) );
+                            ctx.stroke();
+                        }
+                        if (frame_<=45) {
+                            manual=false;
+                            spr.sprites["PL"][0]["width"]=(300+2*(45-frame_)**2);
+                            spr.sprites["PL"][0]["height"]=(300+2*(45-frame_)**2)*img.pl.asp;
+                            spr.sprites["PL"][0]["x"]=300+1.1*(45-frame_)**2
+                            spr.sprites["PL"][0]["y"]=300+0.6*(45-frame_)**2
+                            spr.sprites["PL"][0]["costume"]=[16,12,8,4,0,20,24,2,6,10,14,18,22,26,26,22,18,14,10,6,2,24,20,0][Math.floor((frame_/45)*23)]+mod(frame_,2);
+                        } else {
+                            manual=true;
+                        }
+                        spr.update();
+                        spr.drawAll(ctx,aL,aU,zm);
+                        fillOuter(ctx);
+                        frame_++;
+                    }
+                    frame++;
+
+                    if (newDO!=-1) {
+                        DO=newDO;
+                        newDO=-1;
+                        frame_=0;
+                    }
+
+                }
+                //window.requestAnimationFrame(draw);
+            }
+
+            setInterval(draw,1000/60);
+            //window.requestAnimationFrame(draw);
+        </script>
+    </body>
+</html>
