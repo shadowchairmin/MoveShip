@@ -400,10 +400,10 @@
             img.back = new Image();
             img.back.src = "starsback.png";
             let ALL_LOADED = function(){
-                var rtn=false;
-                img.forEach(im=>{
-                    if (im.width+im.height<1) {
-                        rtn=true;
+                var rtn=true;
+                Object.keys(img).forEach(im=>{
+                    if (img[im].width+img[im].height<1) {
+                        rtn=false;
                     }
                 })
                 return rtn;
