@@ -439,6 +439,11 @@
                                     KEY["ArrowRight"] = tf(S.mouseX/2-S.x,Math.max(Math.abs(S.speedx),acl));
                                     KEY["ArrowUp"] = tf(-S.mouseY+S.y,Math.max(Math.abs(S.speedy),acl));
                                     KEY["ArrowDown"] = tf(S.mouseY-S.y,Math.max(Math.abs(S.speedy),acl));
+                                } else {
+                                    KEY["ArrowLeft"] = false;
+                                    KEY["ArrowRight"] = false;
+                                    KEY["ArrowUp"] = false;
+                                    KEY["ArrowDown"] = false;
                                 }
                             }
                         }
