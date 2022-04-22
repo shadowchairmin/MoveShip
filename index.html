@@ -43,7 +43,7 @@
             let zm=null;
             let mouseX=null;
             let mouseY=null;
-            const SMPH = (navigator.userAgent.indexOf('iPhone') > 0 || navigator.userAgent.indexOf('iPad') > 0 || navigator.userAgent.indexOf('Android') > 0);
+            const SMPH = (navigator.userAgent.match(/iPhone|Android.+Mobile/) || navigator.userAgent.indexOf('iPad') > 0);
             let TOUCHON = false;
             let MOUSEMODE = false;
             let EVENTREC = {"refer":function(k){
