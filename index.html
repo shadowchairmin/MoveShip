@@ -43,8 +43,9 @@
             let zm=null;
             let mouseX=null;
             let mouseY=null;
-            const SMPH = navigator.userAgent.match(/iPhone|Android.+Mobile/)
+            const SMPH = (navigator.userAgent.indexOf('iPhone') > 0 || navigator.userAgent.indexOf('iPad') > 0 || navigator.userAgent.indexOf('Android') > 0);
             let TOUCHON = false;
+            let MOUSEMODE = false;
             let EVENTREC = {"refer":function(k){
                 if (k!="refer") {
                     if (EVENTREC.k===true) {
@@ -117,6 +118,7 @@
             window.addEventListener('mousemove', function(g){
                 mouseX = g.pageX;
                 mouseY = g.pageY;
+                if (!SMPH) {MOUSEMODE = true;}
             })
             if (SMPH) {
                 document.getElementById("maincanvas").addEventListener('touchmove', function(g){
@@ -169,7 +171,7 @@
 
             //キー押下の記録
             let KEY = {};
-            document.addEventListener('keydown', function(e){KEY[e.code]=true;});
+            document.addEventListener('keydown', function(e){KEY[e.code]=true; MOUSEMODE=false;});
             document.addEventListener('keyup', function(e){KEY[e.code]=false;});
 
 
@@ -393,7 +395,7 @@
             //画像読込
             let img = {};
             img.pl = new Image();
-            img.pl.src = "Sprite_PL.png"; //orz
+            img.pl.src = "sprite_PL.png";
             img.pl.asp = 520/910
             img.cloud = new Image();
             img.cloud.src = "Cloud-0.png";
@@ -466,11 +468,19 @@
                         }
                         if (Math.abs(S.angle)<0.01) {S.angle=0;}
                         if (S.time%1==0) {
-                            if (KEY["ArrowUp"]) {S.cos_no-=pmsign(S.cos_no-13);}
-                            else if (KEY["ArrowDown"]) {S.cos_no-=pmsign(S.cos_no-0);}
-                            else if (KEY["ArrowLeft"]) {S.cos_no-=mod(S.time,2)*pmsign(S.cos_no-4);}
-                            else if (KEY["ArrowRight"]) {S.cos_no-=mod(S.time,2)*pmsign(S.cos_no-11);}
-                            else {S.cos_no-=pmsign(S.cos_no-9);}
+                            if (!SMPH) {
+                                if (KEY["ArrowUp"]) {S.cos_no-=pmsign(S.cos_no-13);}
+                                else if (KEY["ArrowDown"]) {S.cos_no-=pmsign(S.cos_no-0);}
+                                else if (KEY["ArrowLeft"]) {S.cos_no-=mod(S.time,2)*pmsign(S.cos_no-4);}
+                                else if (KEY["ArrowRight"]) {S.cos_no-=mod(S.time,2)*pmsign(S.cos_no-11);}
+                                else {S.cos_no-=pmsign(S.cos_no-9);}
+                            } else {
+                                if (S.speedy<0) {S.cos_no-=pmsign(S.cos_no-13);}
+                                else if (S.speedy>0) {S.cos_no-=pmsign(S.cos_no-0);}
+                                else if (S.speedx<0) {S.cos_no-=mod(S.time,2)*pmsign(S.cos_no-4);}
+                                else if (S.speedx>0) {S.cos_no-=mod(S.time,2)*pmsign(S.cos_no-11);}
+                                else {S.cos_no-=pmsign(S.cos_no-9);}
+                            }
                         }
                         S.x=fitin(S.x,0,RES_W);
                         S.y=fitin(S.y,0,RES_H);
